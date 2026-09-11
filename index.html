@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repaso — quiz por temas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper: #EEF0F2;
+    --card: #FBFBFA;
+    --ink: #1D2027;
+    --ink-soft: #5B6270;
+    --line: rgba(29,32,39,0.14);
+    --accent: #E8B94B;
+    --accent-ink: #4A3B0F;
+    --good: #3F7D58;
+    --good-bg: #E6F0E9;
+    --bad: #B4503B;
+    --bad-bg: #F5E6E2;
+    --radius: 5px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  .mono{ font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; }
+  #app{
+    width:100%;
+    max-width:640px;
+    padding:48px 24px 80px;
+  }
+  header.top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:36px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:18px;
+  }
+  header.top h1{
+    font-size:26px;
+    font-weight:600;
+    margin:0;
+  }
+  header.top .status{
+    font-size:12px;
+    color:var(--ink-soft);
+    display:flex;
+    gap:16px;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .link-btn{
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size:13px;
+    padding:0;
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .link-btn:hover{ color:var(--ink); }
+
+  /* --- Lista de temas --- */
+  .topics-controls{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:8px;
+  }
+  .limit-selector{
+    margin-bottom:20px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:14px;
+  }
+  .limit-selector select{
+    font-family:inherit;
+    font-size:14px;
+    padding:4px 8px;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .topic-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    background:none;
+    border:none;
+    border-bottom:1px solid var(--line);
+    padding:16px 6px;
+    text-align:left;
+    color:var(--ink);
+    transition:background .15s ease;
+    cursor:pointer;
+  }
+  .topic-row:hover{ background:rgba(29,32,39,0.035); }
+  .topic-left{ display:flex; align-items:center; gap:14px; }
+  .topic-checkbox{
+    width:17px;
+    height:17px;
+    accent-color:var(--ink);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .topic-row .name{ font-size:20px; font-weight:500; }
+  .topic-row .count{ font-size:13px; color:var(--ink-soft); white-space:nowrap; margin-left:16px; }
+
+  .empty-state{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:28px;
+    background:var(--card);
+    line-height:1.6;
+    font-size:15px;
+  }
+  .empty-state h2{ font-size:18px; margin-top:0; }
+  .empty-state code{
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    background:rgba(29,32,39,0.06);
+    padding:1px 5px;
+    border-radius:3px;
+    font-size:13px;
+  }
+  .file-btn{
+    display:inline-block;
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:var(--radius);
+    padding:11px 22px;
+    font-size:14px;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .file-btn:hover{ background:#000; }
+
+  /* --- Quiz --- */
+  .quiz-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:22px;
+  }
+  .quiz-meta .topic-name{ font-size:14px; color:var(--ink-soft); }
+  .quiz-meta .progress{ font-size:13px; color:var(--ink-soft); }
+
+  .question-text{
+    font-size:23px;
+    line-height:1.4;
+    margin:0 0 28px;
+  }
+
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .option{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:15px 18px;
+    font-size:16px;
+    color:var(--ink);
+    text-align:left;
+  }
+  .option:hover:not(:disabled){ border-color:var(--ink); }
+  .option:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .option .letter{
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+    border-radius:3px;
+    width:22px;
+    height:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .option.selected{ border-color:var(--accent); border-width:2px; padding:14px 17px; }
+  .option.correct{ background:var(--good-bg); border-color:var(--good); }
+  .option.correct .letter{ border-color:var(--good); color:var(--good); }
+  .option.incorrect{ background:var(--bad-bg); border-color:var(--bad); }
+  .option.incorrect .letter{ border-color:var(--bad); color:var(--bad); }
+  .option:disabled{ cursor:default; }
+  .option.dim{ opacity:.55; }
+
+  .next-row{
+    margin-top:26px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:var(--radius);
+    padding:11px 22px;
+    font-size:15px;
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  }
+  .btn-primary:hover{ background:#000; }
+  .btn-primary:disabled{ background:var(--ink-soft); cursor:not-allowed; }
+
+  /* --- Resultado --- */
+  .result{
+    text-align:left;
+  }
+  .result .score{
+    font-size:52px;
+    font-weight:600;
+    margin:8px 0 4px;
+  }
+  .result .score-label{
+    font-size:15px;
+    color:var(--ink-soft);
+    margin-bottom:32px;
+  }
+  .result-actions{
+    display:flex;
+    gap:12px;
+  }
+  .btn-secondary{
+    background:none;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:11px 20px;
+    font-size:14px;
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color:var(--ink);
+  }
+  .btn-secondary:hover{ border-color:var(--ink); }
+
+  .error-box{
+    border:1px solid var(--bad);
+    background:var(--bad-bg);
+    color:var(--bad);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-size:13px;
+    line-height:1.6;
+    margin-bottom:20px;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const app = document.getElementById("app");
+let state = { view: "select", topics: {}, session: null, fileName: null, limit: "all" };
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function handleFile(file){
+  if(!file) return;
+  state.fileName = file.name;
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      
+      const rawTopics = {};
+      
+      workbook.SheetNames.forEach(sheetName => {
+        const tema = sheetName.trim();
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+        
+        json.forEach(row => {
+          const pregunta = String(row['Pregunta'] || '').trim();
+          const respuesta = String(row['Respuesta'] || '').trim();
+          
+          const opciones = [];
+          Object.keys(row).forEach(key => {
+            const lowerKey = key.toLowerCase();
+            if(lowerKey.startsWith('opcion') || lowerKey.startsWith('opción')) {
+              if(row[key]) opciones.push(String(row[key]).trim());
+            }
+          });
+
+          if(!pregunta || opciones.length < 2 || !respuesta) return;
+
+          if(!rawTopics[tema]) rawTopics[tema] = [];
+          rawTopics[tema].push({ pregunta, opciones, respuesta });
+        });
+      });
+
+      state.topics = rawTopics;
+      state.selectedTopics = new Set(Object.keys(state.topics));
+      state.limit = "all";
+      state.view = "topics";
+      
+    } catch(err) {
+      state.error = "No se pudo leer el Excel. Verifica que el formato es correcto (" + err.message + ")";
+      state.view = "error";
+    }
+    render();
+  };
+  
+  reader.onerror = () => {
+    state.error = "Error de lectura del archivo en el navegador.";
+    state.view = "error";
+    render();
+  };
+  
+  reader.readAsArrayBuffer(file);
+}
+
+function startExam(selectedNames){
+  let combined = [];
+  selectedNames.forEach(tema=>{
+    state.topics[tema].forEach(q=> combined.push({ ...q, tema }));
+  });
+  
+  // Mezclar preguntas disponibles
+  combined = shuffle(combined);
+
+  // Aplicar el límite de preguntas si no está en "all"
+  if(state.limit !== "all"){
+    const maxQ = parseInt(state.limit, 10);
+    if(!isNaN(maxQ) && maxQ > 0){
+      combined = combined.slice(0, maxQ);
+    }
+  }
+
+  const questions = combined.map(q=>({
+    pregunta: q.pregunta,
+    respuesta: q.respuesta,
+    tema: q.tema,
+    opciones: shuffle(q.opciones.map(o=>({ texto:o, correcta:o===q.respuesta })))
+  }));
+
+  state.session = {
+    selectedNames,
+    titulo: selectedNames.length === 1 ? selectedNames[0] : `Examen personalizado (${selectedNames.length} temas)`,
+    questions, index:0, correct:0, answered:false, selected:null
+  };
+  state.view = "quiz";
+  render();
+}
+
+function toggleTopic(name){
+  if(state.selectedTopics.has(name)) state.selectedTopics.delete(name);
+  else state.selectedTopics.add(name);
+  render();
+}
+
+function selectOption(i){
+  const s = state.session;
+  if(s.answered) return;
+  s.answered = true;
+  s.selected = i;
+  if(s.questions[s.index].opciones[i].correcta) s.correct++;
+  render();
+}
+
+function nextQuestion(){
+  const s = state.session;
+  if(s.index < s.questions.length - 1){
+    s.index++;
+    s.answered = false;
+    s.selected = null;
+    state.view = "quiz";
+  }else{
+    state.view = "result";
+  }
+  render();
+}
+
+function backToTopics(){
+  state.session = null;
+  state.view = "topics";
+  render();
+}
+
+const LETTERS = ["A","B","C","D","E","F"];
+
+function render(){
+  app.innerHTML = "";
+  const header = document.createElement("header");
+  header.className = "top";
+  const title = document.createElement("h1");
+  title.textContent = "Repaso";
+  header.appendChild(title);
+  
+  const status = document.createElement("div");
+  status.className = "status mono";
+  
+  if(state.view === "quiz"){
+    const backBtn = document.createElement("button");
+    backBtn.className = "link-btn";
+    backBtn.textContent = "← abandonar examen";
+    backBtn.onclick = () => {
+      if(confirm("¿Seguro que quieres salir? Se perderá el progreso actual.")){
+        backToTopics();
+      }
+    };
+    status.appendChild(backBtn);
+  }
+  
+  if(state.view === "topics" || state.view === "quiz" || state.view === "result"){
+    const change = document.createElement("button");
+    change.className = "link-btn";
+    change.textContent = "cargar otro archivo";
+    change.onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all" }; render(); };
+    status.appendChild(change);
+  }
+  
+  header.appendChild(status);
+  app.appendChild(header);
+
+  const main = document.createElement("main");
+
+  if(state.view === "loading"){
+    main.innerHTML = `<p class="mono" style="color:var(--ink-soft);font-size:14px;">Cargando temas…</p>`;
+  }
+
+  else if(state.view === "select"){
+    main.innerHTML = `
+      <div class="empty-state">
+        <h2>Carga tu Excel de preguntas</h2>
+        <p>Selecciona tu archivo <code>.xlsx</code>.</p>
+        <p style="font-size:14px; color:var(--ink-soft);">El código usará <strong>el nombre de cada pestaña (hoja)</strong> como Tema.<br><br>Dentro de cada pestaña, las columnas deben llamarse: <strong>Pregunta, Opcion 1, Opcion 2...</strong> y <strong>Respuesta</strong>.</p>
+        <label class="file-btn mono" for="file-input">Elegir Excel…</label>
+        <input type="file" id="file-input" accept=".xlsx, .xls" style="display:none;">
+        <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">Cada vez que guardes cambios en tu Excel, vuelve aquí y selecciónalo de nuevo.</p>
+      </div>`;
+    main.querySelector("#file-input").addEventListener("change", (e)=>handleFile(e.target.files[0]));
+  }
+
+  else if(state.view === "error"){
+    main.innerHTML = `
+      <div class="error-box">${escapeHtml(state.error)}</div>
+      <button class="btn-secondary mono" id="retry">Volver a elegir archivo</button>`;
+    main.querySelector("#retry").onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all" }; render(); };
+  }
+
+  else if(state.view === "topics"){
+    const names = Object.keys(state.topics);
+    if(names.length === 0){
+      main.innerHTML = `<div class="empty-state"><h2>El archivo no tiene preguntas válidas</h2><p>Revisa que el Excel tenga las columnas correctas (Pregunta, Opcion 1, Opcion 2, Respuesta), que cada pregunta tenga al menos 2 opciones y una respuesta que coincida exactamente con una de ellas.</p></div>`;
+    }else{
+      const allSelected = names.length > 0 && names.every(n=>state.selectedTopics.has(n));
+      const totalDisponibles = names.reduce((sum,n)=> sum + (state.selectedTopics.has(n) ? state.topics[n].length : 0), 0);
+      
+      let totalExamen = totalDisponibles;
+      if(state.limit !== "all"){
+        const l = parseInt(state.limit, 10);
+        if(!isNaN(l)) totalExamen = Math.min(totalDisponibles, l);
+      }
+
+      const controls = document.createElement("div");
+      controls.className = "topics-controls";
+      const selectAllBtn = document.createElement("button");
+      selectAllBtn.className = "btn-secondary mono";
+      selectAllBtn.textContent = allSelected ? "Deseleccionar todos" : "Seleccionar todos";
+      selectAllBtn.onclick = () => {
+        state.selectedTopics = allSelected ? new Set() : new Set(names);
+        render();
+      };
+      const startBtn = document.createElement("button");
+      startBtn.className = "btn-primary";
+      startBtn.disabled = state.selectedTopics.size === 0;
+      startBtn.textContent = state.selectedTopics.size === 0
+        ? "Elige al menos un tema"
+        : `Empezar examen (${totalExamen} pregunta${totalExamen===1?"":"s"})`;
+      startBtn.onclick = () => startExam(Array.from(state.selectedTopics));
+      controls.appendChild(selectAllBtn);
+      controls.appendChild(startBtn);
+      main.appendChild(controls);
+
+      // Selector de límite de preguntas
+      const limitDiv = document.createElement("div");
+      limitDiv.className = "limit-selector mono";
+      limitDiv.innerHTML = `
+        <span>Límite de preguntas:</span>
+        <select id="limit-select">
+          <option value="all" ${state.limit==='all'?'selected':''}>Todas (${totalDisponibles})</option>
+          <option value="10" ${state.limit==='10'?'selected':''}>Máximo 10</option>
+          <option value="20" ${state.limit==='20'?'selected':''}>Máximo 20</option>
+          <option value="30" ${state.limit==='30'?'selected':''}>Máximo 30</option>
+          <option value="50" ${state.limit==='50'?'selected':''}>Máximo 50</option>
+          <option value="100" ${state.limit==='100'?'selected':''}>Máximo 100</option>
+        </select>
+      `;
+      limitDiv.querySelector("#limit-select").addEventListener("change", (e)=>{
+        state.limit = e.target.value;
+        render();
+      });
+      main.appendChild(limitDiv);
+
+      const list = document.createElement("div");
+      names.forEach(name=>{
+        const n = state.topics[name].length;
+        const row = document.createElement("label");
+        row.className = "topic-row";
+        const checked = state.selectedTopics.has(name);
+        row.innerHTML = `
+          <span class="topic-left">
+            <input type="checkbox" class="topic-checkbox" ${checked ? "checked" : ""}>
+            <span class="name">${escapeHtml(name)}</span>
+          </span>
+          <span class="count mono">${n} pregunta${n===1?"":"s"}</span>`;
+        row.querySelector(".topic-checkbox").addEventListener("change", ()=>toggleTopic(name));
+        list.appendChild(row);
+      });
+      main.appendChild(list);
+    }
+  }
+
+  else if(state.view === "quiz"){
+    const s = state.session;
+    const q = s.questions[s.index];
+    const meta = document.createElement("div");
+    meta.className = "quiz-meta";
+    meta.innerHTML = `<span class="topic-name">${escapeHtml(q.tema)}</span><span class="progress mono">Pregunta ${s.index+1} de ${s.questions.length}</span>`;
+    main.appendChild(meta);
+
+    const qEl = document.createElement("p");
+    qEl.className = "question-text";
+    qEl.textContent = q.pregunta;
+    main.appendChild(qEl);
+
+    const opts = document.createElement("div");
+    opts.className = "options";
+    q.opciones.forEach((op,i)=>{
+      const b = document.createElement("button");
+      b.className = "option";
+      b.innerHTML = `<span class="letter">${LETTERS[i]}</span><span>${escapeHtml(op.texto)}</span>`;
+      if(s.answered){
+        b.disabled = true;
+        if(op.correcta) b.classList.add("correct");
+        else if(i === s.selected) b.classList.add("incorrect");
+        else b.classList.add("dim");
+      }else if(i === s.selected){
+        b.classList.add("selected");
+      }
+      b.onclick = ()=>selectOption(i);
+      opts.appendChild(b);
+    });
+    main.appendChild(opts);
+
+    if(s.answered){
+      const nextRow = document.createElement("div");
+      nextRow.className = "next-row";
+      const btn = document.createElement("button");
+      btn.className = "btn-primary";
+      btn.textContent = s.index < s.questions.length - 1 ? "Siguiente" : "Ver resultado";
+      btn.onclick = nextQuestion;
+      nextRow.appendChild(btn);
+      main.appendChild(nextRow);
+    }
+  }
+
+  else if(state.view === "result"){
+    const s = state.session;
+    const pct = Math.round((s.correct / s.questions.length) * 100);
+    main.innerHTML = `
+      <div class="result">
+        <div class="topic-name mono" style="color:var(--ink-soft);font-size:14px;">${escapeHtml(s.titulo)}</div>
+        <div class="score">${s.correct}/${s.questions.length}</div>
+        <div class="score-label mono">${pct}% correctas</div>
+        <div class="result-actions">
+          <button class="btn-primary" id="retry-topic">Repetir examen</button>
+          <button class="btn-secondary mono" id="back">Volver a temas</button>
+        </div>
+      </div>`;
+    main.querySelector("#retry-topic").onclick = ()=>startExam(s.selectedNames);
+    main.querySelector("#back").onclick = backToTopics;
+  }
+
+  app.appendChild(main);
+}
+
+function escapeHtml(str){
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+render();
+</script>
+</body>
+</html>
