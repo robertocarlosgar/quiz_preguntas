@@ -4,56 +4,74 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Repaso — quiz por temas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --paper: #EEF0F2;
-    --card: #FBFBFA;
+    --paper: #F3F1EC;
+    --card: #FFFFFF;
     --ink: #1D2027;
-    --ink-soft: #5B6270;
-    --line: rgba(29,32,39,0.14);
-    --accent: #E8B94B;
-    --accent-ink: #4A3B0F;
+    --ink-soft: #767C88;
+    --line: rgba(29,32,39,0.10);
+    --line-strong: rgba(29,32,39,0.18);
+    --accent: #C8933D;
+    --accent-soft: #F6ECD9;
     --good: #3F7D58;
-    --good-bg: #E6F0E9;
+    --good-bg: #E9F2EC;
     --bad: #B4503B;
-    --bad-bg: #F5E6E2;
-    --radius: 5px;
+    --bad-bg: #F7EAE6;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(29,32,39,0.04), 0 4px 14px rgba(29,32,39,0.05);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--paper);
     color:var(--ink);
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     min-height:100vh;
     display:flex;
     justify-content:center;
+    -webkit-font-smoothing:antialiased;
   }
-  .mono{ font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; }
+  .mono{ font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; letter-spacing:.01em; }
   #app{
     width:100%;
     max-width:640px;
-    padding:48px 24px 80px;
+    padding:52px 24px 90px;
   }
   header.top{
     display:flex;
-    align-items:baseline;
+    align-items:flex-start;
     justify-content:space-between;
-    margin-bottom:36px;
+    margin-bottom:40px;
+    padding-bottom:20px;
     border-bottom:1px solid var(--line);
-    padding-bottom:18px;
   }
-  header.top h1{
-    font-size:26px;
-    font-weight:600;
+  header.top .brand h1{
+    font-size:25px;
+    font-weight:700;
     margin:0;
+    letter-spacing:-0.01em;
+  }
+  header.top .brand .tag{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:4px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
   }
   header.top .status{
-    font-size:12px;
+    font-size:13px;
     color:var(--ink-soft);
     display:flex;
-    gap:16px;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+    padding-top:2px;
   }
   button{
     font-family:inherit;
@@ -63,13 +81,15 @@
     background:none;
     border:none;
     color:var(--ink-soft);
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     font-size:13px;
     padding:0;
-    text-decoration:underline;
-    text-underline-offset:3px;
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+    transition:color .15s ease, border-color .15s ease;
   }
-  .link-btn:hover{ color:var(--ink); }
+  .link-btn:hover{ color:var(--ink); border-color:var(--line-strong); }
+  .star-link{ display:inline-flex; align-items:center; gap:5px; }
+  .star-link svg{ width:13px; height:13px; }
 
   /* --- Lista de temas --- */
   .topics-controls{
@@ -77,43 +97,50 @@
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    margin-bottom:8px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
   }
   .limit-selector{
-    margin-bottom:20px;
+    margin-bottom:22px;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:12px 16px;
+    border-radius:var(--radius-sm);
+    padding:13px 16px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     font-size:14px;
+    box-shadow:var(--shadow);
   }
   .limit-selector select{
     font-family:inherit;
     font-size:14px;
-    padding:4px 8px;
-    border-radius:var(--radius);
+    padding:5px 9px;
+    border-radius:6px;
     border:1px solid var(--line);
     background:var(--paper);
     color:var(--ink);
+  }
+  .topic-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
   }
   .topic-row{
     display:flex;
     align-items:center;
     justify-content:space-between;
     width:100%;
-    background:none;
-    border:none;
-    border-bottom:1px solid var(--line);
-    padding:16px 6px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:15px 16px;
     text-align:left;
     color:var(--ink);
-    transition:background .15s ease;
+    transition:border-color .15s ease, box-shadow .15s ease;
     cursor:pointer;
   }
-  .topic-row:hover{ background:rgba(29,32,39,0.035); }
+  .topic-row:hover{ border-color:var(--line-strong); box-shadow:var(--shadow); }
   .topic-left{ display:flex; align-items:center; gap:14px; }
   .topic-checkbox{
     width:17px;
@@ -122,52 +149,94 @@
     cursor:pointer;
     flex-shrink:0;
   }
-  .topic-row .name{ font-size:20px; font-weight:500; }
-  .topic-row .count{ font-size:13px; color:var(--ink-soft); white-space:nowrap; margin-left:16px; }
+  .topic-row .name{ font-size:16.5px; font-weight:600; }
+  .topic-row .count{ font-size:12.5px; color:var(--ink-soft); white-space:nowrap; margin-left:16px; }
 
   .empty-state{
     border:1px solid var(--line);
     border-radius:var(--radius);
-    padding:28px;
+    padding:30px;
     background:var(--card);
-    line-height:1.6;
+    line-height:1.65;
     font-size:15px;
+    box-shadow:var(--shadow);
   }
-  .empty-state h2{ font-size:18px; margin-top:0; }
+  .empty-state h2{ font-size:18px; margin-top:0; font-weight:700; }
   .empty-state code{
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     background:rgba(29,32,39,0.06);
-    padding:1px 5px;
-    border-radius:3px;
+    padding:2px 6px;
+    border-radius:4px;
     font-size:13px;
   }
   .file-btn{
     display:inline-block;
     background:var(--ink);
     color:var(--paper);
-    border-radius:var(--radius);
-    padding:11px 22px;
+    border-radius:var(--radius-sm);
+    padding:12px 22px;
     font-size:14px;
+    font-weight:600;
     cursor:pointer;
-    margin-top:6px;
+    margin-top:8px;
+    transition:transform .12s ease, background .15s ease;
   }
   .file-btn:hover{ background:#000; }
+  .file-btn:active{ transform:scale(0.98); }
 
   /* --- Quiz --- */
+  .progress-track{
+    width:100%;
+    height:4px;
+    background:var(--line);
+    border-radius:2px;
+    margin-bottom:26px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--accent);
+    border-radius:2px;
+    transition:width .25s ease;
+  }
   .quiz-meta{
     display:flex;
     justify-content:space-between;
-    align-items:baseline;
-    margin-bottom:22px;
+    align-items:center;
+    margin-bottom:18px;
   }
-  .quiz-meta .topic-name{ font-size:14px; color:var(--ink-soft); }
+  .quiz-meta .topic-name{ font-size:13px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
   .quiz-meta .progress{ font-size:13px; color:var(--ink-soft); }
 
-  .question-text{
-    font-size:23px;
-    line-height:1.4;
-    margin:0 0 28px;
+  .question-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:26px;
   }
+  .question-text{
+    font-size:22px;
+    font-weight:600;
+    line-height:1.42;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  .mark-btn{
+    background:none;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    width:40px;
+    height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .mark-btn:hover{ border-color:var(--line-strong); }
+  .mark-btn svg{ width:18px; height:18px; stroke:var(--ink-soft); fill:none; transition:fill .15s ease, stroke .15s ease; }
+  .mark-btn.active{ background:var(--accent-soft); border-color:var(--accent); }
+  .mark-btn.active svg{ fill:var(--accent); stroke:var(--accent); }
 
   .options{
     display:flex;
@@ -181,21 +250,21 @@
     width:100%;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:var(--radius);
+    border-radius:var(--radius-sm);
     padding:15px 18px;
-    font-size:16px;
+    font-size:15.5px;
     color:var(--ink);
     text-align:left;
+    transition:border-color .15s ease, box-shadow .15s ease;
   }
-  .option:hover:not(:disabled){ border-color:var(--ink); }
+  .option:hover:not(:disabled){ border-color:var(--line-strong); box-shadow:var(--shadow); }
   .option:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .option .letter{
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-    font-size:12px;
-    font-weight:600;
+    font-size:11.5px;
+    font-weight:700;
     color:var(--ink-soft);
     border:1px solid var(--line);
-    border-radius:3px;
+    border-radius:5px;
     width:22px;
     height:22px;
     display:flex;
@@ -209,10 +278,10 @@
   .option.incorrect{ background:var(--bad-bg); border-color:var(--bad); }
   .option.incorrect .letter{ border-color:var(--bad); color:var(--bad); }
   .option:disabled{ cursor:default; }
-  .option.dim{ opacity:.55; }
+  .option.dim{ opacity:.5; }
 
   .next-row{
-    margin-top:26px;
+    margin-top:28px;
     display:flex;
     justify-content:flex-end;
   }
@@ -220,12 +289,14 @@
     background:var(--ink);
     color:var(--paper);
     border:none;
-    border-radius:var(--radius);
-    padding:11px 22px;
-    font-size:15px;
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    border-radius:var(--radius-sm);
+    padding:12px 22px;
+    font-size:14.5px;
+    font-weight:600;
+    transition:transform .12s ease, background .15s ease;
   }
   .btn-primary:hover{ background:#000; }
+  .btn-primary:active{ transform:scale(0.98); }
   .btn-primary:disabled{ background:var(--ink-soft); cursor:not-allowed; }
 
   /* --- Resultado --- */
@@ -234,39 +305,81 @@
   }
   .result .score{
     font-size:52px;
-    font-weight:600;
-    margin:8px 0 4px;
+    font-weight:700;
+    margin:10px 0 4px;
+    letter-spacing:-0.02em;
   }
   .result .score-label{
-    font-size:15px;
+    font-size:14.5px;
     color:var(--ink-soft);
     margin-bottom:32px;
   }
   .result-actions{
     display:flex;
     gap:12px;
+    flex-wrap:wrap;
   }
   .btn-secondary{
-    background:none;
+    background:var(--card);
     border:1px solid var(--line);
-    border-radius:var(--radius);
+    border-radius:var(--radius-sm);
     padding:11px 20px;
     font-size:14px;
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    font-weight:600;
     color:var(--ink);
+    transition:border-color .15s ease;
   }
-  .btn-secondary:hover{ border-color:var(--ink); }
+  .btn-secondary:hover{ border-color:var(--line-strong); }
 
   .error-box{
     border:1px solid var(--bad);
     background:var(--bad-bg);
     color:var(--bad);
-    border-radius:var(--radius);
+    border-radius:var(--radius-sm);
     padding:16px 18px;
-    font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     font-size:13px;
     line-height:1.6;
     margin-bottom:20px;
+  }
+
+  /* --- Marcadas --- */
+  .marked-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .marked-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:18px 18px 16px;
+    box-shadow:var(--shadow);
+  }
+  .marked-card .tema{
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    margin-bottom:8px;
+  }
+  .marked-card .pregunta{
+    font-size:16px;
+    font-weight:600;
+    line-height:1.45;
+    margin-bottom:10px;
+  }
+  .marked-card .respuesta{
+    font-size:13.5px;
+    color:var(--good);
+    background:var(--good-bg);
+    display:inline-block;
+    padding:5px 10px;
+    border-radius:6px;
+    margin-bottom:12px;
+  }
+  .marked-card .unmark{
+    display:block;
   }
 </style>
 </head>
@@ -275,7 +388,27 @@
 
 <script>
 const app = document.getElementById("app");
-let state = { view: "select", topics: {}, session: null, fileName: null, limit: "all" };
+
+function loadMarked(){
+  try{
+    const raw = localStorage.getItem("repaso_marked_v1");
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveMarked(marked){
+  try{ localStorage.setItem("repaso_marked_v1", JSON.stringify(marked)); }
+  catch(e){ /* almacenamiento no disponible: se mantiene solo en memoria */ }
+}
+
+let state = {
+  view: "select",
+  topics: {},
+  session: null,
+  fileName: null,
+  limit: "all",
+  selectedTopics: new Set(),
+  marked: loadMarked()
+};
 
 function shuffle(arr){
   const a = arr.slice();
@@ -286,27 +419,57 @@ function shuffle(arr){
   return a;
 }
 
+function questionKey(tema, pregunta){
+  return tema + "§§" + pregunta;
+}
+
+function isMarked(tema, pregunta){
+  return !!state.marked[questionKey(tema, pregunta)];
+}
+
+function toggleMark(q){
+  const key = questionKey(q.tema, q.pregunta);
+  if(state.marked[key]){
+    delete state.marked[key];
+  }else{
+    state.marked[key] = {
+      tema: q.tema,
+      pregunta: q.pregunta,
+      opciones: q.opciones.map(o=>o.texto),
+      respuesta: (q.opciones.find(o=>o.correcta) || {}).texto || ""
+    };
+  }
+  saveMarked(state.marked);
+  render();
+}
+
+function unmark(key){
+  delete state.marked[key];
+  saveMarked(state.marked);
+  render();
+}
+
 function handleFile(file){
   if(!file) return;
   state.fileName = file.name;
   const reader = new FileReader();
-  
+
   reader.onload = (e) => {
     try {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, {type: 'array'});
-      
+
       const rawTopics = {};
-      
+
       workbook.SheetNames.forEach(sheetName => {
         const tema = sheetName.trim();
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet);
-        
+
         json.forEach(row => {
           const pregunta = String(row['Pregunta'] || '').trim();
           const respuesta = String(row['Respuesta'] || '').trim();
-          
+
           const opciones = [];
           Object.keys(row).forEach(key => {
             const lowerKey = key.toLowerCase();
@@ -326,20 +489,20 @@ function handleFile(file){
       state.selectedTopics = new Set(Object.keys(state.topics));
       state.limit = "all";
       state.view = "topics";
-      
+
     } catch(err) {
       state.error = "No se pudo leer el Excel. Verifica que el formato es correcto (" + err.message + ")";
       state.view = "error";
     }
     render();
   };
-  
+
   reader.onerror = () => {
     state.error = "Error de lectura del archivo en el navegador.";
     state.view = "error";
     render();
   };
-  
+
   reader.readAsArrayBuffer(file);
 }
 
@@ -348,11 +511,9 @@ function startExam(selectedNames){
   selectedNames.forEach(tema=>{
     state.topics[tema].forEach(q=> combined.push({ ...q, tema }));
   });
-  
-  // Mezclar preguntas disponibles
+
   combined = shuffle(combined);
 
-  // Aplicar el límite de preguntas si no está en "all"
   if(state.limit !== "all"){
     const maxQ = parseInt(state.limit, 10);
     if(!isNaN(maxQ) && maxQ > 0){
@@ -410,19 +571,35 @@ function backToTopics(){
   render();
 }
 
+function goToMarked(){
+  state.previousView = state.view;
+  state.view = "marked";
+  render();
+}
+
+function backFromMarked(){
+  state.view = state.previousView || (Object.keys(state.topics).length ? "topics" : "select");
+  render();
+}
+
 const LETTERS = ["A","B","C","D","E","F"];
+const STAR_ICON = `<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.2-5.4 3.2 1.3-6-4.6-4.1 6.1-.6z" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 
 function render(){
   app.innerHTML = "";
   const header = document.createElement("header");
   header.className = "top";
-  const title = document.createElement("h1");
-  title.textContent = "Repaso";
-  header.appendChild(title);
-  
+
+  const brand = document.createElement("div");
+  brand.className = "brand";
+  brand.innerHTML = `<h1>Repaso</h1><div class="tag">Quiz por temas</div>`;
+  header.appendChild(brand);
+
   const status = document.createElement("div");
   status.className = "status mono";
-  
+
+  const markedCount = Object.keys(state.marked).length;
+
   if(state.view === "quiz"){
     const backBtn = document.createElement("button");
     backBtn.className = "link-btn";
@@ -434,15 +611,24 @@ function render(){
     };
     status.appendChild(backBtn);
   }
-  
+
   if(state.view === "topics" || state.view === "quiz" || state.view === "result"){
     const change = document.createElement("button");
     change.className = "link-btn";
     change.textContent = "cargar otro archivo";
-    change.onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all" }; render(); };
+    change.onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all", selectedTopics:new Set(), marked: state.marked }; render(); };
     status.appendChild(change);
   }
-  
+
+  if(state.view !== "marked" && (markedCount > 0 || state.view === "topics")){
+    const markedBtn = document.createElement("button");
+    markedBtn.className = "link-btn star-link";
+    markedBtn.innerHTML = `${STAR_ICON} Marcadas (${markedCount})`;
+    markedBtn.querySelector("svg").style.cssText = "stroke:currentColor;fill:" + (markedCount>0 ? "var(--accent)" : "none");
+    markedBtn.onclick = goToMarked;
+    status.appendChild(markedBtn);
+  }
+
   header.appendChild(status);
   app.appendChild(header);
 
@@ -469,7 +655,7 @@ function render(){
     main.innerHTML = `
       <div class="error-box">${escapeHtml(state.error)}</div>
       <button class="btn-secondary mono" id="retry">Volver a elegir archivo</button>`;
-    main.querySelector("#retry").onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all" }; render(); };
+    main.querySelector("#retry").onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all", selectedTopics:new Set(), marked: state.marked }; render(); };
   }
 
   else if(state.view === "topics"){
@@ -479,7 +665,7 @@ function render(){
     }else{
       const allSelected = names.length > 0 && names.every(n=>state.selectedTopics.has(n));
       const totalDisponibles = names.reduce((sum,n)=> sum + (state.selectedTopics.has(n) ? state.topics[n].length : 0), 0);
-      
+
       let totalExamen = totalDisponibles;
       if(state.limit !== "all"){
         const l = parseInt(state.limit, 10);
@@ -506,7 +692,6 @@ function render(){
       controls.appendChild(startBtn);
       main.appendChild(controls);
 
-      // Selector de límite de preguntas
       const limitDiv = document.createElement("div");
       limitDiv.className = "limit-selector mono";
       limitDiv.innerHTML = `
@@ -527,6 +712,7 @@ function render(){
       main.appendChild(limitDiv);
 
       const list = document.createElement("div");
+      list.className = "topic-list";
       names.forEach(name=>{
         const n = state.topics[name].length;
         const row = document.createElement("label");
@@ -548,15 +734,31 @@ function render(){
   else if(state.view === "quiz"){
     const s = state.session;
     const q = s.questions[s.index];
+
+    const track = document.createElement("div");
+    track.className = "progress-track";
+    track.innerHTML = `<div class="progress-fill" style="width:${Math.round(((s.index)/s.questions.length)*100)}%"></div>`;
+    main.appendChild(track);
+
     const meta = document.createElement("div");
     meta.className = "quiz-meta";
     meta.innerHTML = `<span class="topic-name">${escapeHtml(q.tema)}</span><span class="progress mono">Pregunta ${s.index+1} de ${s.questions.length}</span>`;
     main.appendChild(meta);
 
+    const qRow = document.createElement("div");
+    qRow.className = "question-row";
     const qEl = document.createElement("p");
     qEl.className = "question-text";
     qEl.textContent = q.pregunta;
-    main.appendChild(qEl);
+    qRow.appendChild(qEl);
+
+    const markBtn = document.createElement("button");
+    markBtn.className = "mark-btn" + (isMarked(q.tema, q.pregunta) ? " active" : "");
+    markBtn.title = isMarked(q.tema, q.pregunta) ? "Quitar marca" : "Marcar pregunta";
+    markBtn.innerHTML = STAR_ICON;
+    markBtn.onclick = () => toggleMark(q);
+    qRow.appendChild(markBtn);
+    main.appendChild(qRow);
 
     const opts = document.createElement("div");
     opts.className = "options";
@@ -594,7 +796,7 @@ function render(){
     const pct = Math.round((s.correct / s.questions.length) * 100);
     main.innerHTML = `
       <div class="result">
-        <div class="topic-name mono" style="color:var(--ink-soft);font-size:14px;">${escapeHtml(s.titulo)}</div>
+        <div class="topic-name mono" style="color:var(--ink-soft);font-size:13px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">${escapeHtml(s.titulo)}</div>
         <div class="score">${s.correct}/${s.questions.length}</div>
         <div class="score-label mono">${pct}% correctas</div>
         <div class="result-actions">
@@ -604,6 +806,51 @@ function render(){
       </div>`;
     main.querySelector("#retry-topic").onclick = ()=>startExam(s.selectedNames);
     main.querySelector("#back").onclick = backToTopics;
+  }
+
+  else if(state.view === "marked"){
+    const entries = Object.entries(state.marked);
+    const backRow = document.createElement("div");
+    backRow.style.marginBottom = "20px";
+    const backBtn = document.createElement("button");
+    backBtn.className = "link-btn";
+    backBtn.textContent = "← volver";
+    backBtn.onclick = backFromMarked;
+    backRow.appendChild(backBtn);
+    main.appendChild(backRow);
+
+    const h2 = document.createElement("h2");
+    h2.textContent = "Preguntas marcadas";
+    h2.style.cssText = "font-size:20px;font-weight:700;margin:0 0 18px;";
+    main.appendChild(h2);
+
+    if(entries.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = `<p style="margin:0;">Todavía no has marcado ninguna pregunta. Pulsa la estrella junto a una pregunta durante el examen para guardarla aquí y repasarla más tarde.</p>`;
+      main.appendChild(empty);
+    }else{
+      const list = document.createElement("div");
+      list.className = "marked-list";
+      entries
+        .sort((a,b)=> a[1].tema.localeCompare(b[1].tema))
+        .forEach(([key, q])=>{
+          const card = document.createElement("div");
+          card.className = "marked-card";
+          card.innerHTML = `
+            <div class="tema">${escapeHtml(q.tema)}</div>
+            <div class="pregunta">${escapeHtml(q.pregunta)}</div>
+            <div class="respuesta">${escapeHtml(q.respuesta)}</div>
+          `;
+          const unmarkBtn = document.createElement("button");
+          unmarkBtn.className = "btn-secondary mono unmark";
+          unmarkBtn.textContent = "Quitar marca";
+          unmarkBtn.onclick = () => unmark(key);
+          card.appendChild(unmarkBtn);
+          list.appendChild(card);
+        });
+      main.appendChild(list);
+    }
   }
 
   app.appendChild(main);
