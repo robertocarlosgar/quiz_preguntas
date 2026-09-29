@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --paper: #F3F1EC;
@@ -449,61 +448,67 @@ function unmark(key){
   render();
 }
 
-function handleFile(file){
-  if(!file) return;
-  state.fileName = file.name;
-  const reader = new FileReader();
+async function handleFolder(files){
+  if(!files || !files.length) return;
 
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, {type: 'array'});
+  state.view = "loading";
+  state.fileName = `${files.length} archivo${files.length === 1 ? "" : "s"} JSON`;
+  render();
 
-      const rawTopics = {};
+  try {
+    const rawTopics = {};
+    const jsonFiles = Array.from(files).filter(file =>
+      file.name.toLowerCase().endsWith(".json") ||
+      file.type === "application/json"
+    );
 
-      workbook.SheetNames.forEach(sheetName => {
-        const tema = sheetName.trim();
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
-
-        json.forEach(row => {
-          const pregunta = String(row['Pregunta'] || '').trim();
-          const respuesta = String(row['Respuesta'] || '').trim();
-
-          const opciones = [];
-          Object.keys(row).forEach(key => {
-            const lowerKey = key.toLowerCase();
-            if(lowerKey.startsWith('opcion') || lowerKey.startsWith('opción')) {
-              if(row[key]) opciones.push(String(row[key]).trim());
-            }
-          });
-
-          if(!pregunta || opciones.length < 2 || !respuesta) return;
-
-          if(!rawTopics[tema]) rawTopics[tema] = [];
-          rawTopics[tema].push({ pregunta, opciones, respuesta });
-        });
-      });
-
-      state.topics = rawTopics;
-      state.selectedTopics = new Set(Object.keys(state.topics));
-      state.limit = "all";
-      state.view = "topics";
-
-    } catch(err) {
-      state.error = "No se pudo leer el Excel. Verifica que el formato es correcto (" + err.message + ")";
-      state.view = "error";
+    if(jsonFiles.length === 0){
+      throw new Error("La carpeta no contiene archivos .json.");
     }
-    render();
-  };
 
-  reader.onerror = () => {
-    state.error = "Error de lectura del archivo en el navegador.";
+    for(const file of jsonFiles){
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // El tema es el nombre del archivo, sin .json.
+      const tema = file.name.replace(/\.json$/i, "").trim();
+
+      // Admite tanto un array directamente como { "preguntas": [...] }.
+      const preguntas = Array.isArray(data)
+        ? data
+        : (Array.isArray(data.preguntas) ? data.preguntas : []);
+
+      if(!tema || preguntas.length === 0) continue;
+
+      preguntas.forEach(q => {
+        const pregunta = String(q.pregunta || "").trim();
+        const respuesta = String(q.respuesta || "").trim();
+        const opciones = Array.isArray(q.opciones)
+          ? q.opciones.map(o => String(o).trim()).filter(Boolean)
+          : [];
+
+        if(!pregunta || opciones.length < 2 || !respuesta) return;
+
+        if(!rawTopics[tema]) rawTopics[tema] = [];
+        rawTopics[tema].push({ pregunta, opciones, respuesta });
+      });
+    }
+
+    if(Object.keys(rawTopics).length === 0){
+      throw new Error("No se encontraron preguntas válidas en los archivos JSON.");
+    }
+
+    state.topics = rawTopics;
+    state.selectedTopics = new Set(Object.keys(state.topics));
+    state.limit = "all";
+    state.view = "topics";
+
+  } catch(err) {
+    state.error = "No se pudieron leer los archivos JSON. Verifica que el formato sea correcto (" + err.message + ")";
     state.view = "error";
-    render();
-  };
+  }
 
-  reader.readAsArrayBuffer(file);
+  render();
 }
 
 function startExam(selectedNames){
@@ -615,7 +620,7 @@ function render(){
   if(state.view === "topics" || state.view === "quiz" || state.view === "result"){
     const change = document.createElement("button");
     change.className = "link-btn";
-    change.textContent = "cargar otro archivo";
+    change.textContent = "cargar otra carpeta";
     change.onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all", selectedTopics:new Set(), marked: state.marked }; render(); };
     status.appendChild(change);
   }
@@ -641,14 +646,27 @@ function render(){
   else if(state.view === "select"){
     main.innerHTML = `
       <div class="empty-state">
-        <h2>Carga tu Excel de preguntas</h2>
-        <p>Selecciona tu archivo <code>.xlsx</code>.</p>
-        <p style="font-size:14px; color:var(--ink-soft);">El código usará <strong>el nombre de cada pestaña (hoja)</strong> como Tema.<br><br>Dentro de cada pestaña, las columnas deben llamarse: <strong>Pregunta, Opcion 1, Opcion 2...</strong> y <strong>Respuesta</strong>.</p>
-        <label class="file-btn mono" for="file-input">Elegir Excel…</label>
-        <input type="file" id="file-input" accept=".xlsx, .xls" style="display:none;">
-        <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">Cada vez que guardes cambios en tu Excel, vuelve aquí y selecciónalo de nuevo.</p>
+        <h2>Carga tus preguntas</h2>
+        <p>Selecciona los archivos JSON que quieras, o selecciona una carpeta para cargar todos sus JSON.</p>
+        <p style="font-size:14px; color:var(--ink-soft);">
+          El <strong>nombre de cada archivo</strong> será el nombre del Tema.
+          Por ejemplo, <code>Tema 1.json</code> se mostrará como <strong>Tema 1</strong>.<br><br>
+          Cada JSON debe contener una lista de preguntas con los campos
+          <strong>pregunta, opciones y respuesta</strong>.
+        </p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <label class="file-btn mono" for="json-input">Elegir JSON…</label>
+        </div>
+
+        <input type="file" id="json-input" accept=".json,application/json" multiple style="display:none;">
+
+        <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">
+          <strong>Elegir JSON…</strong> permite seleccionar uno o varios archivos concretos.
+          <strong>Elegir carpeta…</strong> carga todos los archivos JSON de esa carpeta.
+        </p>
       </div>`;
-    main.querySelector("#file-input").addEventListener("change", (e)=>handleFile(e.target.files[0]));
+    main.querySelector("#json-input").addEventListener("change", (e)=>handleFolder(e.target.files));
   }
 
   else if(state.view === "error"){
@@ -661,7 +679,7 @@ function render(){
   else if(state.view === "topics"){
     const names = Object.keys(state.topics);
     if(names.length === 0){
-      main.innerHTML = `<div class="empty-state"><h2>El archivo no tiene preguntas válidas</h2><p>Revisa que el Excel tenga las columnas correctas (Pregunta, Opcion 1, Opcion 2, Respuesta), que cada pregunta tenga al menos 2 opciones y una respuesta que coincida exactamente con una de ellas.</p></div>`;
+      main.innerHTML = `<div class="empty-state"><h2>La carpeta no tiene preguntas válidas</h2><p>Revisa que los archivos JSON tengan los campos pregunta, opciones y respuesta, que cada pregunta tenga al menos 2 opciones y que la respuesta coincida exactamente con una de ellas.</p></div>`;
     }else{
       const allSelected = names.length > 0 && names.every(n=>state.selectedTopics.has(n));
       const totalDisponibles = names.reduce((sum,n)=> sum + (state.selectedTopics.has(n) ? state.topics[n].length : 0), 0);
