@@ -380,10 +380,22 @@
   .marked-card .unmark{
     display:block;
   }
+  .version-badge{
+    position:fixed;
+    right:12px;
+    bottom:10px;
+    font-size:12px;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+    opacity:.75;
+    pointer-events:none;
+    user-select:none;
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div class="version-badge mono">v3</div>
 
 <script>
 const app = document.getElementById("app");
@@ -448,66 +460,61 @@ function unmark(key){
   render();
 }
 
-async function handleFolder(files){
-  if(!files || !files.length) return;
+function parseTopicJson(data, fileName){
+  // El tema es siempre el nombre del archivo. El JSON es un array de preguntas
+  // (también se acepta { "preguntas": [...] }).
+  const tema = fileName.replace(/\.json$/i, "").trim();
+  const lista = Array.isArray(data) ? data : data.preguntas;
+  if(!Array.isArray(lista)) throw new Error("debe ser una lista de preguntas");
 
-  state.view = "loading";
-  state.fileName = `${files.length} archivo${files.length === 1 ? "" : "s"} JSON`;
-  render();
-
-  try {
-    const rawTopics = {};
-    const jsonFiles = Array.from(files).filter(file =>
-      file.name.toLowerCase().endsWith(".json") ||
-      file.type === "application/json"
-    );
-
-    if(jsonFiles.length === 0){
-      throw new Error("La carpeta no contiene archivos .json.");
+  const valid = [];
+  let skipped = 0;
+  lista.forEach(item => {
+    const pregunta = String(item.pregunta || "").trim();
+    const respuesta = String(item.respuesta || "").trim();
+    const opciones = Array.isArray(item.opciones)
+      ? item.opciones.map(o => String(o).trim()).filter(Boolean)
+      : [];
+    if(!pregunta || opciones.length < 2 || !respuesta || !opciones.includes(respuesta)){
+      skipped++;
+      return;
     }
+    valid.push({ pregunta, opciones, respuesta });
+  });
+  return { tema, valid, skipped };
+}
 
-    for(const file of jsonFiles){
+async function handleFiles(fileList){
+  const files = Array.from(fileList || []);
+  if(files.length === 0) return;
+
+  const rawTopics = {};
+  const warnings = [];
+
+  for(const file of files){
+    try{
       const text = await file.text();
       const data = JSON.parse(text);
-
-      // El tema es el nombre del archivo, sin .json.
-      const tema = file.name.replace(/\.json$/i, "").trim();
-
-      // Admite tanto un array directamente como { "preguntas": [...] }.
-      const preguntas = Array.isArray(data)
-        ? data
-        : (Array.isArray(data.preguntas) ? data.preguntas : []);
-
-      if(!tema || preguntas.length === 0) continue;
-
-      preguntas.forEach(q => {
-        const pregunta = String(q.pregunta || "").trim();
-        const respuesta = String(q.respuesta || "").trim();
-        const opciones = Array.isArray(q.opciones)
-          ? q.opciones.map(o => String(o).trim()).filter(Boolean)
-          : [];
-
-        if(!pregunta || opciones.length < 2 || !respuesta) return;
-
-        if(!rawTopics[tema]) rawTopics[tema] = [];
-        rawTopics[tema].push({ pregunta, opciones, respuesta });
-      });
+      const { tema, valid, skipped } = parseTopicJson(data, file.name);
+      if(valid.length){
+        // Un archivo = un tema. Nunca se fusionan archivos distintos.
+        let nombre = tema, n = 2;
+        while(rawTopics[nombre]) nombre = `${tema} (${n++})`;
+        rawTopics[nombre] = valid;
+      }
+      if(skipped) warnings.push(`${file.name}: ${skipped} pregunta${skipped===1?"":"s"} ignorada${skipped===1?"":"s"} (faltan datos o la respuesta no coincide con ninguna opción).`);
+      if(!valid.length && !skipped) warnings.push(`${file.name}: no contiene preguntas.`);
+    }catch(err){
+      warnings.push(`${file.name}: no se pudo leer (${err.message}).`);
     }
-
-    if(Object.keys(rawTopics).length === 0){
-      throw new Error("No se encontraron preguntas válidas en los archivos JSON.");
-    }
-
-    state.topics = rawTopics;
-    state.selectedTopics = new Set(Object.keys(state.topics));
-    state.limit = "all";
-    state.view = "topics";
-
-  } catch(err) {
-    state.error = "No se pudieron leer los archivos JSON. Verifica que el formato sea correcto (" + err.message + ")";
-    state.view = "error";
   }
 
+  state.fileName = files.map(f=>f.name).join(", ");
+  state.topics = rawTopics;
+  state.selectedTopics = new Set(Object.keys(rawTopics));
+  state.limit = "all";
+  state.warnings = warnings;
+  state.view = "topics";
   render();
 }
 
@@ -620,7 +627,7 @@ function render(){
   if(state.view === "topics" || state.view === "quiz" || state.view === "result"){
     const change = document.createElement("button");
     change.className = "link-btn";
-    change.textContent = "cargar otra carpeta";
+    change.textContent = "cargar otros archivos";
     change.onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all", selectedTopics:new Set(), marked: state.marked }; render(); };
     status.appendChild(change);
   }
@@ -646,40 +653,33 @@ function render(){
   else if(state.view === "select"){
     main.innerHTML = `
       <div class="empty-state">
-        <h2>Carga tus preguntas</h2>
-        <p>Selecciona los archivos JSON que quieras, o selecciona una carpeta para cargar todos sus JSON.</p>
-        <p style="font-size:14px; color:var(--ink-soft);">
-          El <strong>nombre de cada archivo</strong> será el nombre del Tema.
-          Por ejemplo, <code>Tema 1.json</code> se mostrará como <strong>Tema 1</strong>.<br><br>
-          Cada JSON debe contener una lista de preguntas con los campos
-          <strong>pregunta, opciones y respuesta</strong>.
-        </p>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <label class="file-btn mono" for="json-input">Elegir JSON…</label>
-        </div>
-
-        <input type="file" id="json-input" accept=".json,application/json" multiple style="display:none;">
-
-        <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">
-          <strong>Elegir JSON…</strong> permite seleccionar uno o varios archivos concretos.
-          <strong>Elegir carpeta…</strong> carga todos los archivos JSON de esa carpeta.
-        </p>
+        <h2>Carga tus archivos de preguntas</h2>
+        <p>Selecciona uno o varios archivos <code>.json</code>. <strong>Cada archivo es un tema</strong>: si eliges 2 archivos, verás 2 temas.</p>
+        <p style="font-size:14px; color:var(--ink-soft);">El <strong>nombre del archivo</strong> será el nombre del tema (por ejemplo, <code>Historia.json</code> → tema "Historia").<br>La <strong>respuesta</strong> debe coincidir exactamente con una de las opciones.</p>
+        <label class="file-btn mono" for="file-input">Elegir JSON…</label>
+        <input type="file" id="file-input" accept=".json,application/json" multiple style="display:none;">
+        <p style="margin-top:18px;font-size:13px;color:var(--ink-soft);">Puedes seleccionar varios a la vez (Ctrl/Cmd o Mayús en el selector). Si editas un JSON, vuelve aquí y cárgalos de nuevo.</p>
       </div>`;
-    main.querySelector("#json-input").addEventListener("change", (e)=>handleFolder(e.target.files));
+    main.querySelector("#file-input").addEventListener("change", (e)=>handleFiles(e.target.files));
   }
 
   else if(state.view === "error"){
     main.innerHTML = `
       <div class="error-box">${escapeHtml(state.error)}</div>
-      <button class="btn-secondary mono" id="retry">Volver a elegir archivo</button>`;
+      <button class="btn-secondary mono" id="retry">Volver a elegir archivos</button>`;
     main.querySelector("#retry").onclick = () => { state = { view:"select", topics:{}, session:null, fileName:null, limit:"all", selectedTopics:new Set(), marked: state.marked }; render(); };
   }
 
   else if(state.view === "topics"){
     const names = Object.keys(state.topics);
+    if(state.warnings && state.warnings.length){
+      const w = document.createElement("div");
+      w.className = "error-box";
+      w.innerHTML = state.warnings.map(escapeHtml).join("<br>");
+      main.appendChild(w);
+    }
     if(names.length === 0){
-      main.innerHTML = `<div class="empty-state"><h2>La carpeta no tiene preguntas válidas</h2><p>Revisa que los archivos JSON tengan los campos pregunta, opciones y respuesta, que cada pregunta tenga al menos 2 opciones y que la respuesta coincida exactamente con una de ellas.</p></div>`;
+      main.insertAdjacentHTML("beforeend", `<div class="empty-state"><h2>Los archivos no tienen preguntas válidas</h2><p>Revisa que cada JSON tenga la estructura correcta (una lista de objetos con pregunta, opciones y respuesta), que cada pregunta tenga al menos 2 opciones y una respuesta que coincida exactamente con una de ellas.</p></div>`);
     }else{
       const allSelected = names.length > 0 && names.every(n=>state.selectedTopics.has(n));
       const totalDisponibles = names.reduce((sum,n)=> sum + (state.selectedTopics.has(n) ? state.topics[n].length : 0), 0);
